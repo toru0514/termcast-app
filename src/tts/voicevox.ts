@@ -10,6 +10,7 @@ export class VoicevoxEngine implements TtsEngine {
   constructor(
     private url = config.voicevox.url,
     private speaker = config.voicevox.speaker,
+    private speed = config.voicevox.speed,
   ) {}
 
   /** エンジンが起動しているか（factory のフォールバック判定に使う） */
@@ -32,6 +33,8 @@ export class VoicevoxEngine implements TtsEngine {
     );
     if (!queryRes.ok) throw new Error(`audio_query failed: ${queryRes.status}`);
     const query = await queryRes.json();
+    // 話速を反映（30秒に収めるため）
+    query.speedScale = this.speed;
 
     const synthRes = await fetch(`${this.url}/synthesis?speaker=${this.speaker}`, {
       method: 'POST',

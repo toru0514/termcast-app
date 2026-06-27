@@ -17,25 +17,25 @@ export class TemplateScriptGenerator implements ScriptGenerator {
       scenes: [
         {
           type: 'hook',
-          narration: `${t}って、なんとなく聞いたことはあるけど説明できますか？30秒でスッキリ理解しましょう。`,
+          narration: `${t}って説明できますか？30秒でサクッと理解しましょう。`,
           caption: `${t}って何？`,
           visual: suggestVisual(t, 'hook'),
         },
         {
           type: 'definition',
-          narration: `${t}は、${cat}の世界でよく使われる基本用語のひとつです。まずは言葉の意味をシンプルに押さえましょう。`,
-          caption: `${t}＝${cat}の基本用語`,
+          narration: `${t}は、${cat}でよく使う基本用語です。意味をシンプルに押さえましょう。`,
+          caption: `${cat}の基本用語`,
           visual: suggestVisual(t, 'definition'),
         },
         {
           type: 'example',
-          narration: `たとえば株価のチャートや決算の数字を見るとき、${t}を知っていると判断のヒントになります。身近な例でイメージするのがコツです。`,
-          caption: `具体例でイメージ`,
+          narration: `チャートや決算を見るとき、${t}を知っていると判断のヒントになります。`,
+          caption: `判断のヒントに`,
           visual: suggestVisual(t, 'example'),
         },
         {
           type: 'summary',
-          narration: `というわけで${t}でした。明日は別の用語を解説します。チャンネル登録で一緒に学んでいきましょう。`,
+          narration: `以上、${t}でした。明日は別の用語を解説します。`,
           caption: `今日のまとめ`,
           visual: suggestVisual(t, 'summary'),
         },
