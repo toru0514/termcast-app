@@ -31,10 +31,8 @@ describe('publish router', () => {
       { path: '/tmp/nonexistent.mp4' },
       { title: 't', description: 'd', tags: [], disclaimer: 'x' },
     );
-    // YouTube / TikTok は資格情報未設定なので必ず skipped
-    const yt = results.find((r) => r.platform === 'youtube');
+    // TikTok は資格情報未設定なので必ず skipped
     const tk = results.find((r) => r.platform === 'tiktok');
-    expect(yt?.status).toBe('skipped');
     expect(tk?.status).toBe('skipped');
     // 存在しない動画なので、どの媒体も成功(ok)にはならない（環境非依存）
     expect(results.some((r) => r.status === 'ok')).toBe(false);

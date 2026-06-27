@@ -26,11 +26,16 @@ export const config = {
     speed: Number(process.env.VOICEVOX_SPEED ?? '1.15'),
   },
   youtube: {
-    clientId: process.env.YOUTUBE_CLIENT_ID ?? '',
-    clientSecret: process.env.YOUTUBE_CLIENT_SECRET ?? '',
+    // YouTube Data API v3（OAuth）。gws は YouTube 非対応のため別経路。
+    // 認証クライアントは gws の Desktop OAuth クライアントを流用、refresh token は npm run youtube:auth で取得。
+    upload: ['1', 'true', 'yes'].includes((process.env.YOUTUBE_UPLOAD ?? '').toLowerCase()),
+    privacy: process.env.YOUTUBE_PRIVACY ?? 'public',
+    categoryId: process.env.YOUTUBE_CATEGORY_ID ?? '27', // 27 = Education
     refreshToken: process.env.YOUTUBE_REFRESH_TOKEN ?? '',
+    clientSecretPath:
+      process.env.YOUTUBE_CLIENT_SECRET_FILE ?? resolve(homedir(), '.config/gws/client_secret.json'),
     get enabled() {
-      return Boolean(this.clientId && this.clientSecret && this.refreshToken);
+      return this.upload && Boolean(this.refreshToken);
     },
   },
   tiktok: {
@@ -51,6 +56,7 @@ export const config = {
 /** リポジトリルートからの主要パス */
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { homedir } from 'node:os';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const ROOT = resolve(here, '..');

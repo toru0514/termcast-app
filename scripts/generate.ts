@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { basename } from 'node:path';
 import { config, paths } from '../src/config.js';
 import { uploadToDrive } from '../src/drive.js';
+import { uploadToYouTube } from '../src/youtube.js';
 import { createTermStore } from '../src/pick/store.js';
 import { createScriptGenerator } from '../src/script/index.js';
 import { buildSceneFile, applyDurations } from '../src/scene/build.js';
@@ -64,26 +65,48 @@ async function main() {
   console.log('');
   log('5/6 render', `→ ${videoPath}`);
 
-  // ⑥Google Drive へ自動保存（gws CLI 経由。GOOGLE_DRIVE_FOLDER_ID 設定時）
+  const meta = buildVideoMeta(term, sceneFile);
+
+  // ⑥-a Google Drive へ自動保存（gws CLI 経由。GOOGLE_DRIVE_FOLDER_ID 設定時）
   let driveFileId: string | undefined;
   let driveLink: string | undefined;
   if (config.drive.enabled) {
-    log('6/6 drive', 'Google Drive へアップロード中…');
+    log('6/7 drive', 'Google Drive へアップロード中…');
     try {
       const res = await uploadToDrive(videoPath, config.drive.folderId, basename(videoPath));
       driveFileId = res.id;
       driveLink = res.link;
-      log('6/6 drive', `保存完了 → ${res.link}`);
+      log('6/7 drive', `保存完了 → ${res.link}`);
     } catch (err) {
-      log('6/6 drive', `⚠️ Drive 保存に失敗: ${(err as Error).message}`);
+      log('6/7 drive', `⚠️ Drive 保存に失敗: ${(err as Error).message}`);
     }
   } else {
-    log('6/6 drive', 'GOOGLE_DRIVE_FOLDER_ID 未設定のため Drive 保存はスキップ');
+    log('6/7 drive', 'GOOGLE_DRIVE_FOLDER_ID 未設定のため Drive 保存はスキップ');
   }
 
-  // 進捗更新 + マニフェスト書き出し
+  // ⑥-b YouTube へ自動アップロード（gws CLI 経由。YOUTUBE_UPLOAD=1 設定時）
+  let youtubeVideoId: string | undefined;
+  let youtubeLink: string | undefined;
+  if (config.youtube.enabled) {
+    log('7/7 youtube', `YouTube へアップロード中…（privacy=${config.youtube.privacy}）`);
+    try {
+      const res = await uploadToYouTube(videoPath, meta, config.youtube.privacy);
+      youtubeVideoId = res.id;
+      youtubeLink = res.link;
+      log('7/7 youtube', `アップロード完了 → ${res.link}`);
+    } catch (err) {
+      log('7/7 youtube', `⚠️ YouTube アップロードに失敗: ${(err as Error).message}`);
+    }
+  } else {
+    log('7/7 youtube', 'YOUTUBE_UPLOAD 未設定のため YouTube アップロードはスキップ');
+  }
+
+  // 進捗更新 + 成果物ID記録 + マニフェスト書き出し
   await store.markGenerated(term.id);
-  const meta = buildVideoMeta(term, sceneFile);
+  await store.recordArtifacts(term.id, {
+    youtube_video_id: youtubeVideoId ?? null,
+    drive_link: driveLink ?? null,
+  });
   const manifest: RunManifest = {
     termId: term.id,
     term: term.term,
@@ -94,10 +117,12 @@ async function main() {
     ttsEngine: tts.name,
     driveFileId,
     driveLink,
+    youtubeVideoId,
+    youtubeLink,
   };
   await writeFile(resolve(paths.output, 'last.json'), JSON.stringify(manifest, null, 2));
 
-  log('done', `完了。動画: ${videoPath}${driveLink ? ` / Drive: ${driveLink}` : ''}`);
+  log('done', `完了。動画: ${videoPath}${driveLink ? ` / Drive: ${driveLink}` : ''}${youtubeLink ? ` / YouTube: ${youtubeLink}` : ''}`);
 }
 
 main().catch((err) => {

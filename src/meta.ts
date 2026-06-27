@@ -39,4 +39,6 @@ export interface RunManifest {
   ttsEngine: string;
   driveFileId?: string;
   driveLink?: string;
+  youtubeVideoId?: string;
+  youtubeLink?: string;
 }

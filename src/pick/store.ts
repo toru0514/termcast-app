@@ -18,6 +18,8 @@ export interface TermStore {
   pickNext(): Promise<Term | null>;
   markGenerated(id: string): Promise<void>;
   markPublished(id: string, fields: PublishFields): Promise<void>;
+  /** ステータスは変えずに成果物ID（Drive/YouTube）だけ記録する */
+  recordArtifacts(id: string, fields: PublishFields): Promise<void>;
 }
 
 // ===== ローカルJSON ストア（Supabase未設定時のフォールバック） =====
@@ -95,6 +97,13 @@ export class LocalTermStore implements TermStore {
     };
     await this.saveUsed(used);
   }
+
+  async recordArtifacts(id: string, fields: PublishFields): Promise<void> {
+    const used = await this.loadUsed();
+    const prev = used[id] ?? { status: 'generated', category: '' };
+    used[id] = { ...prev, ...fields } as UsedRecord;
+    await this.saveUsed(used);
+  }
 }
 
 // ===== Supabase ストア（本番） =====
@@ -145,6 +154,14 @@ export class SupabaseTermStore implements TermStore {
       })
       .eq('id', id);
     if (error) throw new Error(`Supabase markPublished failed: ${error.message}`);
+  }
+
+  async recordArtifacts(id: string, fields: PublishFields): Promise<void> {
+    const { error } = await this.client
+      .from(config.supabase.table)
+      .update({ ...fields })
+      .eq('id', id);
+    if (error) throw new Error(`Supabase recordArtifacts failed: ${error.message}`);
   }
 }
 
