@@ -290,3 +290,84 @@ termcast-app/
 2. **Remotion テンプレ設計** — 縦型 Composition ＋ 図解コンポーネント1〜2種（まず `candle_intro` / `candle_anatomy`）。
 3. **scene.json スキーマ確定** — ②③④⑤の契約を固める。
 4. **1本を手動で通す** — MVP の通し確認。
+
+---
+
+## 9. セットアップ・実行（実装版）
+
+本リポジトリは上記設計を TypeScript で実装したものです。**資格情報が無くてもオフラインで `generate` が MP4 まで完走できる**よう、各外部依存にフォールバックを用意しています（本番は `.env` を設定すれば本物に切り替わります）。
+
+### 9.1 前提
+- Node.js 20 以上
+- （任意）VOICEVOX をローカル起動（未起動時は無音WAVモックにフォールバック）
+- 初回 `generate` 時に Remotion が Chrome Headless Shell（約93MB）を自動ダウンロードします
+
+### 9.2 インストール
+```bash
+npm install
+cp .env.example .env   # 必要に応じて値を設定（未設定でも動作）
+```
+
+### 9.3 1本通す（MVP）
+```bash
+# （任意）VOICEVOX エンジンを起動しておくと実音声になる
+npm run generate                 # ①ネタ選定〜⑤MP4出力 → output/output.mp4
+open output/output.mp4           # 目視確認
+npm run publish                  # ⑥3媒体へ配信（未設定の媒体は skipped）
+npm run publish -- --only youtube  # 媒体を絞る
+npm run publish -- --dry-run     # 配信せず対象だけ確認
+```
+
+### 9.4 フォールバック早見表
+
+| 段階 | 本番 | フォールバック（資格情報なし） |
+|------|------|------------------------------|
+| ①ネタ | Supabase | `data/terms.seed.json`（80語）+ `data/used.json` で重複防止 |
+| ②台本 | Gemini Flash | テンプレート台本生成（決定的） |
+| ④音声 | VOICEVOX | 推定尺の無音WAV |
+| ⑥配信 | YT / TikTok / Drive API | 各アダプタが `skipped` を返す |
+
+### 9.5 抽象化の対応（設計 → コード）
+
+| 設計上の抽象 | 実装 |
+|--------------|------|
+| `script-generator` | `src/script/`（`ScriptGenerator` IF + Gemini / テンプレ） |
+| scene.json 中間表現 | `src/types.ts` の `SceneFile` + `src/scene/` |
+| `Publisher` | `src/publish/`（IF + 3アダプタ + ルーター） |
+| TTS エンジン | `src/tts/`（`TtsEngine` IF + VOICEVOX / モック） |
+| レンダラー | `src/remotion/`（`scene.json` を props に受ける単一 Composition） |
+
+### 9.6 Supabase を使う場合
+```bash
+npm run seed:sql            # data/terms.seed.json → INSERT 文を出力
+# db/schema.sql でテーブル作成 → 上記 INSERT を実行
+# .env に SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY を設定すると自動で Supabase ストアに切り替わる
+```
+
+### 9.7 その他コマンド
+```bash
+npm test                    # 純ロジックのテスト（選定/シーン/WAV/配信ルーティング）
+npm run typecheck           # 型チェック
+npm run remotion:studio     # Remotion Studio で図解コンポーネントをプレビュー
+```
+
+### 9.8 ディレクトリ（実装）
+```
+termcast-app/
+├── src/
+│   ├── config.ts          # 環境変数・パス集約
+│   ├── types.ts           # 各段階の契約（型 + zod）
+│   ├── pick/              # ①ネタ選定（select ロジック + Supabase/ローカル store）
+│   ├── script/            # ②台本生成（IF + Gemini + テンプレ）
+│   ├── scene/             # ③シーン定義（build + visual マッピング + io）
+│   ├── tts/               # ④音声合成（VOICEVOX + 無音モック + WAV util）
+│   ├── remotion/          # ⑤レンダリング（Root / Short / visuals / render）
+│   ├── publish/           # ⑥配信（IF + youtube / tiktok / instagram + router）
+│   └── meta.ts            # 配信メタ生成
+├── scripts/               # generate / publish / print-seed-sql CLI
+├── data/                  # terms.seed.json（用語マスタ）
+├── db/schema.sql          # Supabase テーブル定義
+├── tests/                 # vitest
+├── scene/                 # 生成された scene.json（gitignore）
+└── output/                # 生成された mp4 等（gitignore）
+```
