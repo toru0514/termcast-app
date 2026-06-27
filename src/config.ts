@@ -22,8 +22,8 @@ export const config = {
   voicevox: {
     url: process.env.VOICEVOX_URL ?? 'http://127.0.0.1:50021',
     speaker: Number(process.env.VOICEVOX_SPEAKER ?? '3'),
-    // 話速（1.0=標準）。30秒に収めるため少し速め。
-    speed: Number(process.env.VOICEVOX_SPEED ?? '1.1'),
+    // 話速（1.0=標準）。15〜20秒のテンポ重視で速め。
+    speed: Number(process.env.VOICEVOX_SPEED ?? '1.15'),
   },
   youtube: {
     clientId: process.env.YOUTUBE_CLIENT_ID ?? '',

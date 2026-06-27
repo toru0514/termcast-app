@@ -65,7 +65,7 @@ export class GeminiScriptGenerator implements ScriptGenerator {
   private buildPrompt(term: Term): string {
     return [
       'あなたは株式投資初心者向けのショート動画の構成作家です。',
-      `次の株用語を、約30秒で簡潔に解説する台本を作ってください。テンポ重視で短く。`,
+      `次の株用語を、約15〜20秒でサクッと解説する台本を作ってください。とにかく短くテンポよく。`,
       `用語: ${term.term}（読み: ${term.reading}、カテゴリ: ${term.category}、難易度: ${term.difficulty}）`,
       '',
       '構成は次の4シーン固定です:',
@@ -75,8 +75,8 @@ export class GeminiScriptGenerator implements ScriptGenerator {
       '4. summary … 一言で締め',
       '',
       '制約（厳守）:',
-      '- narration は読み上げ用の自然な話し言葉。1シーン35〜55字、合計160〜190字程度。',
-      '- 冗長な前置き・繰り返しは禁止。要点だけをテンポよく。',
+      '- narration は読み上げ用の自然な話し言葉。1シーン20〜30字、合計90〜110字程度。',
+      '- 冗長な前置き・修飾・繰り返しは禁止。要点だけを一息で言い切る。',
       '- caption は画面テロップ用の短い一言（最大12字）。',
       '- 投資助言と誤認される断定（「買うべき」等）は避け、教育目的に徹する。',
       '- 各シーンに type / narration / caption を必ず含めること。',

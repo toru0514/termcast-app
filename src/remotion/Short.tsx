@@ -34,7 +34,7 @@ const BrandHeader: React.FC<{ term: string }> = ({ term }) => (
       letterSpacing: 2,
     }}
   >
-    📈 30秒で株用語 ｜ {term}
+    📈 サクッと株用語 ｜ {term}
   </div>
 );
 

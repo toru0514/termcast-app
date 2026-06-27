@@ -14,9 +14,9 @@ export function buildVideoMeta(term: Term, sceneFile: SceneFile): VideoMeta {
   ].filter(Boolean);
 
   return {
-    title: `【30秒で株用語】${term.term}とは？`,
+    title: `【サクッと株用語】${term.term}とは？`,
     description: [
-      `株式投資の初心者向けに「${term.term}」を30秒で解説します。`,
+      `株式投資の初心者向けに「${term.term}」をサクッと解説します。`,
       summary && `ポイント: ${summary}`,
       '',
       '#株式投資 #投資初心者 #株用語',
