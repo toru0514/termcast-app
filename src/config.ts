@@ -3,8 +3,11 @@ import 'dotenv/config';
 /** 環境変数を一箇所に集約。未設定はフォールバック判定に使う。 */
 export const config = {
   supabase: {
-    url: process.env.SUPABASE_URL ?? '',
+    // 借用プロジェクトでは NEXT_PUBLIC_SUPABASE_URL 名で持っていることが多いので両対応
+    url: process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
     key: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+    // 間借り先の既存テーブルと衝突しないよう名前空間化（既定はそのまま terms）
+    table: process.env.SUPABASE_TERMS_TABLE ?? 'terms',
     get enabled() {
       return Boolean(this.url && this.key);
     },

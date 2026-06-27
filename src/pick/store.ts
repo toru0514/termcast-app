@@ -110,13 +110,13 @@ export class SupabaseTermStore implements TermStore {
 
   async pickNext(): Promise<Term | null> {
     const { data: pendingRows, error } = await this.client
-      .from('terms')
+      .from(config.supabase.table)
       .select('*')
       .eq('status', 'pending');
     if (error) throw new Error(`Supabase pickNext failed: ${error.message}`);
 
     const { data: publishedRows } = await this.client
-      .from('terms')
+      .from(config.supabase.table)
       .select('category, published_at')
       .eq('status', 'published')
       .order('published_at', { ascending: false })
@@ -129,7 +129,7 @@ export class SupabaseTermStore implements TermStore {
 
   async markGenerated(id: string): Promise<void> {
     const { error } = await this.client
-      .from('terms')
+      .from(config.supabase.table)
       .update({ status: 'generated' })
       .eq('id', id);
     if (error) throw new Error(`Supabase markGenerated failed: ${error.message}`);
@@ -137,7 +137,7 @@ export class SupabaseTermStore implements TermStore {
 
   async markPublished(id: string, fields: PublishFields): Promise<void> {
     const { error } = await this.client
-      .from('terms')
+      .from(config.supabase.table)
       .update({
         status: 'published',
         published_at: new Date().toISOString(),
