@@ -44,9 +44,12 @@ async function main() {
   const scenePath = await writeSceneFile(sceneFile);
   log('4/6 tts', `総尺 ${ttsResult.totalSec.toFixed(1)}s${ttsResult.mocked ? '（無音モック）' : ''} → ${scenePath}`);
 
-  // ⑤レンダリング
+  // ⑤レンダリング（最終動画は video/ に用語＋日時で出力）
+  await mkdir(paths.video, { recursive: true });
   await mkdir(paths.output, { recursive: true });
-  const videoPath = resolve(paths.output, 'output.mp4');
+  const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+  const safeTerm = term.term.replace(/[\\/:*?"<>|]/g, '_');
+  const videoPath = resolve(paths.video, `${safeTerm}_${stamp}.mp4`);
   log('5/6 render', 'Remotion レンダリング開始…');
   let lastPct = -1;
   await renderShort(sceneFile, videoPath, (ratio) => {

@@ -11,3 +11,5 @@ src/remotion/public/*
 *.log
 .DS_Store
 .remotion/
+video/*
+!video/.gitkeep

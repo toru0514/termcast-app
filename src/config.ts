@@ -55,6 +55,7 @@ export const ROOT = resolve(here, '..');
 export const paths = {
   root: ROOT,
   output: resolve(ROOT, 'output'),
+  video: resolve(ROOT, 'video'),
   scene: resolve(ROOT, 'scene'),
   remotionEntry: resolve(ROOT, 'src/remotion/index.ts'),
   remotionPublic: resolve(ROOT, 'src/remotion/public'),

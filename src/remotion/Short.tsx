@@ -84,10 +84,12 @@ const SceneView: React.FC<{ scene: Scene; term: string }> = ({ scene, term }) =>
   const Visual = isVisualName(scene.visual)
     ? VISUAL_REGISTRY[scene.visual]
     : VISUAL_REGISTRY.generic_term;
+  // bullet_points は visual 自体が caption を見せるため、下部の重複表示を抑止する
+  const showCaption = scene.visual !== 'bullet_points';
   return (
     <AbsoluteFill>
       <Visual scene={scene} term={term} />
-      <Caption scene={scene} />
+      {showCaption ? <Caption scene={scene} /> : null}
     </AbsoluteFill>
   );
 };
