@@ -211,7 +211,7 @@ interface Publisher {
 ## 4. ディレクトリ構成（案）
 
 ```
-stock-edu-video/
+termcast-app/
 ├── src/
 │   ├── pick/          # ①ネタ選定（Supabase クライアント）
 │   ├── script/        # ②台本生成（Gemini Flash アダプタ）
