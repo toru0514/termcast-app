@@ -25,12 +25,18 @@ describe('publish router', () => {
     });
   });
 
-  it('認証情報未設定なら全媒体 skipped（実通信なし）', async () => {
+  it('認証情報未設定の媒体は skipped・存在しない動画で ok にはならない', async () => {
     const results = await publishAll(
       createPublishers(),
       { path: '/tmp/nonexistent.mp4' },
       { title: 't', description: 'd', tags: [], disclaimer: 'x' },
     );
-    expect(results.every((r) => r.status === 'skipped')).toBe(true);
+    // YouTube / TikTok は資格情報未設定なので必ず skipped
+    const yt = results.find((r) => r.platform === 'youtube');
+    const tk = results.find((r) => r.platform === 'tiktok');
+    expect(yt?.status).toBe('skipped');
+    expect(tk?.status).toBe('skipped');
+    // 存在しない動画なので、どの媒体も成功(ok)にはならない（環境非依存）
+    expect(results.some((r) => r.status === 'ok')).toBe(false);
   });
 });

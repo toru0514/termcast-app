@@ -40,10 +40,10 @@ export const config = {
     },
   },
   drive: {
+    // 認証は gws CLI（keyring）が持つため folderId だけでよい
     folderId: process.env.GOOGLE_DRIVE_FOLDER_ID ?? '',
-    credentials: process.env.GOOGLE_APPLICATION_CREDENTIALS ?? '',
     get enabled() {
-      return Boolean(this.folderId && this.credentials);
+      return Boolean(this.folderId);
     },
   },
 };

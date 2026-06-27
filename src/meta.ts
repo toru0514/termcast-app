@@ -37,4 +37,6 @@ export interface RunManifest {
   meta: VideoMeta;
   generatedAt: string;
   ttsEngine: string;
+  driveFileId?: string;
+  driveLink?: string;
 }
