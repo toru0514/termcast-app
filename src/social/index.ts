@@ -2,7 +2,7 @@ import { config } from '../config.js';
 import type { SceneFile } from '../types.js';
 import { buildSocialText } from './caption.js';
 import { writeInstagramDraft } from './instagram.js';
-import { ALL_SOCIAL_PLATFORMS, type SocialPlatform } from './platforms.js';
+import { ACTIVE_SOCIAL_PLATFORMS, type SocialPlatform } from './platforms.js';
 import { SocialStatusStore, type SocialStage } from './status.js';
 import { TikTokUploader } from './tiktok.js';
 import { buildXText, XPoster } from './x.js';
@@ -34,7 +34,7 @@ export interface RunSocialInput {
 }
 
 export async function runSocial(input: RunSocialInput): Promise<SocialResult[]> {
-  const platforms = input.platforms?.length ? input.platforms : [...ALL_SOCIAL_PLATFORMS];
+  const platforms = input.platforms?.length ? input.platforms : [...ACTIVE_SOCIAL_PLATFORMS];
   const store = input.statusStore ?? new SocialStatusStore();
   const results: SocialResult[] = [];
 

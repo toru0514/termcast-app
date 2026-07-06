@@ -11,7 +11,17 @@ import { z } from 'zod';
 export const SocialPlatform = z.enum(['tiktok', 'instagram', 'x']);
 export type SocialPlatform = z.infer<typeof SocialPlatform>;
 
+/**
+ * 定義済みの全媒体（`--only x` の検証等に使用）。X はコード上の実装は残すが、
+ * 現状このアプリでは使わない「仮置き」扱い（下記 ACTIVE から除外）。
+ */
 export const ALL_SOCIAL_PLATFORMS: readonly SocialPlatform[] = ['tiktok', 'instagram', 'x'];
+
+/**
+ * 既定で配信する媒体（`npm run social` のローテーション）。
+ * X を使いたくなったら 'x' をこの配列へ追加するだけで有効化できる。
+ */
+export const ACTIVE_SOCIAL_PLATFORMS: readonly SocialPlatform[] = ['tiktok', 'instagram'];
 
 /** ハッシュタグの流儀（媒体ごとに文化が違う） */
 export type HashtagStyle =

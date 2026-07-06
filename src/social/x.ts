@@ -6,6 +6,10 @@ import { specOf } from './platforms.js';
 /**
  * 2-C: X(Twitter) 投稿モジュール（設計書 §3 Phase 2-C / 優先度低）。
  *
+ * ★ 仮置き（現状このアプリでは未使用）: 既定ローテーション ACTIVE_SOCIAL_PLATFORMS からは外している。
+ *   必要になったら platforms.ts の ACTIVE_SOCIAL_PLATFORMS に 'x' を足すだけで有効化できる。
+ *   実装自体は残してあるため `npm run social -- --only x` で単体動作の確認は可能。
+ *
  * X には「下書き」概念が無いため、完全自動投稿 or 自前スケジューラ予約のいずれか。
  * リンク付き投稿はコストが跳ねる（1件 $0.20）ため、既定はリンクを含めず
  * プロフィール欄への誘導のみとする運用を推奨。

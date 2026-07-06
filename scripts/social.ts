@@ -5,7 +5,11 @@ import { paths } from '../src/config.js';
 import { SceneFileSchema } from '../src/types.js';
 import type { RunManifest } from '../src/meta.js';
 import { runSocial } from '../src/social/index.js';
-import { ALL_SOCIAL_PLATFORMS, type SocialPlatform } from '../src/social/platforms.js';
+import {
+  ACTIVE_SOCIAL_PLATFORMS,
+  ALL_SOCIAL_PLATFORMS,
+  type SocialPlatform,
+} from '../src/social/platforms.js';
 
 /**
  * SNS投稿自動化 CLI（YouTube以外: TikTok / Instagram / X）。
@@ -47,7 +51,7 @@ async function main() {
 
   console.log(`SNS配信対象: ${manifest.term} (${manifest.video})`);
   console.log(
-    `媒体: ${platforms ? platforms.join(', ') : `all (${ALL_SOCIAL_PLATFORMS.join(', ')})`}${dryRun ? ' [dry-run]' : ''}`,
+    `媒体: ${platforms ? platforms.join(', ') : `default (${ACTIVE_SOCIAL_PLATFORMS.join(', ')})`}${dryRun ? ' [dry-run]' : ''}`,
   );
 
   const results = await runSocial({
