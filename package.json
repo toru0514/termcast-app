@@ -7,6 +7,7 @@
   "scripts": {
     "generate": "tsx scripts/generate.ts",
     "publish": "tsx scripts/publish.ts",
+    "social": "tsx scripts/social.ts",
     "seed:sql": "tsx scripts/print-seed-sql.ts",
     "remotion:studio": "remotion studio src/remotion/index.ts",
     "test": "vitest run",

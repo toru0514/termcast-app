@@ -40,6 +40,26 @@ export const config = {
   },
   tiktok: {
     accessToken: process.env.TIKTOK_ACCESS_TOKEN ?? '',
+    // 'inbox'（審査不要・下書き送信）/ 'direct'（審査後・直接投稿）
+    mode: (process.env.TIKTOK_MODE ?? 'inbox') as 'inbox' | 'direct',
+    get enabled() {
+      return Boolean(this.accessToken);
+    },
+  },
+  instagram: {
+    // 審査通過後の Graph API 本実装用。未設定なら下書きJSON生成のみ（設計書 §3 Phase 2-B）。
+    igUserId: process.env.INSTAGRAM_IG_USER_ID ?? '',
+    accessToken: process.env.INSTAGRAM_ACCESS_TOKEN ?? '',
+    get enabled() {
+      return Boolean(this.igUserId && this.accessToken);
+    },
+  },
+  x: {
+    // X API v2 の OAuth2 ユーザーコンテキスト Bearer（投稿権限つき）。
+    accessToken: process.env.X_ACCESS_TOKEN ?? '',
+    // リンク付き投稿は 1件 $0.20 と高額なため既定でリンクを含めない（設計書 §2.3）。
+    includeLinks: ['1', 'true', 'yes'].includes((process.env.X_INCLUDE_LINKS ?? '').toLowerCase()),
+    profileUrl: process.env.X_PROFILE_URL ?? '',
     get enabled() {
       return Boolean(this.accessToken);
     },

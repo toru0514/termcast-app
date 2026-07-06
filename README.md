@@ -206,6 +206,23 @@ interface Publisher {
 
 **Playwright について**: TikTok・Instagram は自動操作の検知が厳しくアカウント制限のリスクがあるため、公式APIが使える範囲は必ずAPIを優先し、Playwright での画面自動操作は採用しない。
 
+#### 3.6.5 SNS投稿自動化レイヤー（`src/social/` / `npm run social`）
+
+YouTube 以外（TikTok / Instagram / X）を対象に、設計書「SNS投稿自動化 設計仕様書」に沿って生成ロジックと API 接続ロジックを分離した専用レイヤー。`npm run generate` の出力（`output/last.json` + `scene.json`）を入力に、媒体別の下書き送信・公開・生成を行う。
+
+- **Phase 1 キャプション/ハッシュタグ生成**（`caption.ts`）: `scene.json` だけを入力にする純関数。TikTok=口語+ハッシュタグ多め、Instagram=長文+末尾ハッシュタグブロック、X=大幅要約+280字（CJK重み付き）に分岐。審査前後で本文生成のインターフェースは不変。
+- **2-A TikTok**（`tiktok.ts`）: `creator_info` 取得 → Upload API で **inbox 下書き送信**（審査不要）。`TIKTOK_MODE=direct` で審査後の直接投稿へ切替可能。レート制限 6req/min は `RateLimiter` で吸収。
+- **2-B Instagram**（`instagram.ts`）: 公式下書きAPIが無いため `output/instagram/{content_id}/`（`video.mp4` / `caption.txt` / `hashtags.txt` / `meta.json`）を生成。`meta.json` は Graph API 互換キー（`media_type` / `caption` / `video_url` / `cover_url` / `share_to_feed`）で、審査通過後は接続部の差し替えのみで公開へ移行できる。
+- **2-C X**（`x.ts`）: リンク付き投稿は高額（1件 $0.20）のため既定でリンクを含めず、プロフィール誘導のみ。`X_ACCESS_TOKEN` 設定時に API v2 で投稿。
+- **共通ステータス管理**（`status.ts`）: `material_ready` / `draft_sent` / `published` の3段階を `output/social-status.json` に媒体横断で記録。
+- **レート制限の一元管理**（`platforms.ts`）: 媒体別の上限・文字数・ハッシュタグ流儀を外出しし、`SOCIAL_*` 環境変数で上書き可能。
+
+```
+npm run social                 # TikTok/Instagram/X へ（未設定媒体は skipped）
+npm run social -- --only x     # X のみ
+npm run social -- --dry-run    # 送信せず本文案だけ確認
+```
+
 ---
 
 ## 4. ディレクトリ構成（案）
