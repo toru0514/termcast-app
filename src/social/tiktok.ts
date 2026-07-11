@@ -14,6 +14,67 @@ import { RateLimiter, specOf } from './platforms.js';
 
 export type TikTokMode = 'inbox' | 'direct';
 
+const TOKEN_URL = 'https://open.tiktokapis.com/v2/oauth/token/';
+
+export interface TikTokTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn?: number;
+  openId?: string;
+  scope?: string;
+}
+
+/** OAuth トークンエンドポイントの共通呼び出し（application/x-www-form-urlencoded）。 */
+async function tokenRequest(params: Record<string, string>): Promise<TikTokTokens> {
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(params).toString(),
+  });
+  const json = (await res.json()) as {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+    open_id?: string;
+    scope?: string;
+    error?: string;
+    error_description?: string;
+  };
+  if (!res.ok || json.error || !json.access_token || !json.refresh_token) {
+    throw new Error(json.error_description ?? json.error ?? `token request failed: ${res.status}`);
+  }
+  return {
+    accessToken: json.access_token,
+    refreshToken: json.refresh_token,
+    expiresIn: json.expires_in,
+    openId: json.open_id,
+    scope: json.scope,
+  };
+}
+
+/** 認可コードをアクセストークン/リフレッシュトークンに交換する（tiktok:auth 用）。 */
+export function exchangeCode(code: string): Promise<TikTokTokens> {
+  return tokenRequest({
+    client_key: config.tiktok.clientKey,
+    client_secret: config.tiktok.clientSecret,
+    code,
+    grant_type: 'authorization_code',
+    redirect_uri: config.tiktok.redirectUri,
+  });
+}
+
+/** refresh_token から新しいアクセストークンを取得する（実行時の自動更新用）。 */
+export function refreshAccessToken(
+  refreshToken: string = config.tiktok.refreshToken,
+): Promise<TikTokTokens> {
+  return tokenRequest({
+    client_key: config.tiktok.clientKey,
+    client_secret: config.tiktok.clientSecret,
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+  });
+}
+
 export interface CreatorInfo {
   creatorNickname?: string;
   /** 直接公開が許可された公開範囲オプション（審査状況で変わる） */
@@ -33,27 +94,51 @@ export class TikTokUploader {
   private base = 'https://open.tiktokapis.com/v2';
   private limiter: RateLimiter;
 
+  private cachedToken?: string;
+
   constructor(private accessToken: string = config.tiktok.accessToken) {
     this.limiter = new RateLimiter(specOf('tiktok').rateLimit.perMinute);
   }
 
   get enabled(): boolean {
-    return Boolean(this.accessToken);
+    const { clientKey, clientSecret, refreshToken } = config.tiktok;
+    return Boolean(this.accessToken || (clientKey && clientSecret && refreshToken));
   }
 
-  private headers(): Record<string, string> {
+  /**
+   * 有効なアクセストークンを解決する。refresh 用の資格情報があれば毎回リフレッシュして
+   * 24時間失効を回避する（access_token 直指定より優先）。1インスタンス内ではキャッシュ。
+   */
+  private async resolveToken(): Promise<string> {
+    if (this.cachedToken) return this.cachedToken;
+    const { clientKey, clientSecret, refreshToken } = config.tiktok;
+    if (clientKey && clientSecret && refreshToken) {
+      this.cachedToken = (await refreshAccessToken(refreshToken)).accessToken;
+      return this.cachedToken;
+    }
+    if (this.accessToken) {
+      this.cachedToken = this.accessToken;
+      return this.accessToken;
+    }
+    throw new Error(
+      'TikTokの認証情報がありません（TIKTOK_ACCESS_TOKEN、または CLIENT_KEY/SECRET/REFRESH_TOKEN）。npm run tiktok:auth を先に実行してください。',
+    );
+  }
+
+  private headers(token: string): Record<string, string> {
     return {
-      Authorization: `Bearer ${this.accessToken}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json; charset=UTF-8',
     };
   }
 
   /** creator_info 取得。Direct Post 可否や公開範囲オプションの確認に使う。 */
   async queryCreatorInfo(): Promise<CreatorInfo> {
+    const token = await this.resolveToken();
     await this.limiter.acquire();
     const res = await fetch(`${this.base}/post/publish/creator_info/query/`, {
       method: 'POST',
-      headers: this.headers(),
+      headers: this.headers(token),
     });
     const json = (await res.json()) as {
       data?: {
@@ -110,10 +195,11 @@ export class TikTokUploader {
         : { source_info: sourceInfo };
 
     // 1) 初期化
+    const token = await this.resolveToken();
     await this.limiter.acquire();
     const initRes = await fetch(endpoint, {
       method: 'POST',
-      headers: this.headers(),
+      headers: this.headers(token),
       body: JSON.stringify(initBody),
     });
     const initJson = (await initRes.json()) as {

@@ -133,5 +133,5 @@ export * from './platforms.js';
 export * from './caption.js';
 export * from './status.js';
 export { writeInstagramDraft } from './instagram.js';
-export { TikTokUploader } from './tiktok.js';
+export { TikTokUploader, exchangeCode, refreshAccessToken } from './tiktok.js';
 export { XPoster, buildXText } from './x.js';

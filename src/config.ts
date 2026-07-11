@@ -42,8 +42,18 @@ export const config = {
     accessToken: process.env.TIKTOK_ACCESS_TOKEN ?? '',
     // 'inbox'（審査不要・下書き送信）/ 'direct'（審査後・直接投稿）
     mode: (process.env.TIKTOK_MODE ?? 'inbox') as 'inbox' | 'direct',
+    // OAuth（tiktok:auth でトークン取得 / 実行時に refresh_token で自動更新）。
+    // localhost がRedirect URIに使えないため、既定は本リポジトリのGitHub Pagesコールバック。
+    clientKey: process.env.TIKTOK_CLIENT_KEY ?? '',
+    clientSecret: process.env.TIKTOK_CLIENT_SECRET ?? '',
+    refreshToken: process.env.TIKTOK_REFRESH_TOKEN ?? '',
+    redirectUri:
+      process.env.TIKTOK_REDIRECT_URI ?? 'https://toru0514.github.io/termcast-app/callback.html',
+    // v2 はカンマ区切り。inbox 運用は video.upload + プロフィール確認用の user.info.basic。
+    scopes: process.env.TIKTOK_SCOPES ?? 'user.info.basic,video.upload',
     get enabled() {
-      return Boolean(this.accessToken);
+      // access_token を直接持つ or refresh で取得できる（clientKey+secret+refreshToken）
+      return Boolean(this.accessToken || (this.clientKey && this.clientSecret && this.refreshToken));
     },
   },
   instagram: {
