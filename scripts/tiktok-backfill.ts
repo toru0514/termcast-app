@@ -6,6 +6,7 @@ import { createScriptGenerator } from '../src/script/index.js';
 import { buildSceneFile } from '../src/scene/build.js';
 import { buildSocialText, TikTokUploader } from '../src/social/index.js';
 import { SocialStatusStore } from '../src/social/status.js';
+import { renderCaptionsHtml, type CaptionItem } from '../src/social/captions-page.js';
 
 /**
  * 既存の生成済み動画(video/*.mp4)をまとめて TikTok の下書き(inbox)へ送るバックフィル。
@@ -24,6 +25,8 @@ import { SocialStatusStore } from '../src/social/status.js';
  *   npm run tiktok:backfill -- --force     送信済みも再送する
  */
 const CAPTIONS_PATH = resolve(paths.output, 'tiktok-captions.md');
+// GitHub Pages で配信するモバイル向けキャプション閲覧ページ（コミット対象）。
+const CAPTIONS_HTML_PATH = resolve(paths.root, 'captions.html');
 
 /** `PBR_2026-06-27-...mp4` / `NISA_final.mp4` → 用語部分を取り出す */
 function termFromFilename(file: string): string {
@@ -86,27 +89,49 @@ async function main() {
   console.log(`対象 ${files.length} 本${dryRun ? '（dry-run: 送信しない）' : ''}\n`);
 
   const sections: string[] = [];
+  const items: CaptionItem[] = [];
   let ok = 0;
   let failed = 0;
   let skipped = 0;
   let stoppedByLimit = false;
+  // 上限到達後も「キャプション生成」は全件続け、閲覧ページに全動画を載せる。送信だけ止める。
+  let sendingBlocked = false;
 
   for (const [i, file] of files.entries()) {
     const termStr = termFromFilename(file);
     const videoPath = resolve(paths.video, file);
     const idx = `[${i + 1}/${files.length}]`;
-    try {
-      const term = toTerm(termStr, seedMap.get(termStr));
-      const already = statusAll[term.id]?.tiktok?.stage === 'draft_sent';
-      const script = await generator.generate(term);
-      const sceneFile = buildSceneFile(term, script);
-      const social = buildSocialText(sceneFile, 'tiktok');
 
-      let draftId = statusAll[term.id]?.tiktok?.targetId ?? '';
-      if (!dryRun && already && !force) {
-        skipped++;
-        console.log(`${idx} ⏭️  ${termStr} → 送信済みのためスキップ (id=${draftId})`);
-      } else if (!dryRun) {
+    // 1) キャプションは常に生成（送信可否と独立）
+    let body = '';
+    let draftId = '';
+    let itemError: string | undefined;
+    let term;
+    try {
+      term = toTerm(termStr, seedMap.get(termStr));
+      draftId = statusAll[term.id]?.tiktok?.targetId ?? '';
+      const script = await generator.generate(term);
+      body = buildSocialText(buildSceneFile(term, script), 'tiktok').body;
+    } catch (err) {
+      failed++;
+      itemError = (err as Error).message;
+      console.error(`${idx} ❌ ${termStr}: キャプション生成失敗 ${itemError}`);
+      items.push({ term: termStr, file, draftId: '', body: '', error: itemError });
+      sections.push(`## ${termStr}\n- 動画: \`${file}\`\n- エラー: ${itemError}\n`);
+      continue;
+    }
+
+    // 2) 送信（dry-run / 送信済み / 上限ブロック時は送らない）
+    const already = statusAll[term.id]?.tiktok?.stage === 'draft_sent';
+    if (dryRun) {
+      console.log(`${idx} 📝 ${termStr} → キャプション生成のみ`);
+    } else if (already && !force) {
+      skipped++;
+      console.log(`${idx} ⏭️  ${termStr} → 送信済みのためスキップ (id=${draftId})`);
+    } else if (sendingBlocked) {
+      console.log(`${idx} ⏸️  ${termStr} → 下書き上限のため送信スキップ`);
+    } else {
+      try {
         const res = await uploader.upload(videoPath, undefined, 'inbox');
         draftId = res.publishId;
         await store.set(term.id, {
@@ -117,37 +142,35 @@ async function main() {
         });
         ok++;
         console.log(`${idx} ✅ ${termStr} → 下書き送信 (id=${draftId})`);
-      } else {
-        console.log(`${idx} 📝 ${termStr} → キャプション生成のみ`);
-      }
-
-      sections.push(
-        [
-          `## ${termStr}`,
-          `- 動画: \`${file}\``,
-          draftId ? `- 下書きID: \`${draftId}\`` : '- 下書きID: (未送信)',
-          '',
-          '```',
-          social.body,
-          '```',
-          '',
-        ].join('\n'),
-      );
-    } catch (err) {
-      const msg = (err as Error).message;
-      failed++;
-      console.error(`${idx} ❌ ${termStr}: ${msg}`);
-      sections.push(`## ${termStr}\n- 動画: \`${file}\`\n- エラー: ${msg}\n`);
-      // 未公開下書きの上限に達した場合、以降も必ず失敗するので即停止して枠空けを促す。
-      if (msg.includes('spam_risk_too_many_pending_share')) {
-        stoppedByLimit = true;
-        console.error(
-          '\n⚠️ 未公開の下書き(pending)が上限に達しました。TikTokアプリで下書きを公開/削除して枠を空けてから、\n' +
-            '   もう一度 npm run tiktok:backfill を実行してください（送信済みは自動スキップされます）。',
-        );
-        break;
+      } catch (err) {
+        const msg = (err as Error).message;
+        if (msg.includes('spam_risk_too_many_pending_share')) {
+          sendingBlocked = true;
+          stoppedByLimit = true;
+          console.error(
+            `${idx} ⚠️ ${termStr}: 未公開下書きが上限に達したため以降の送信を停止（キャプション生成は継続）`,
+          );
+        } else {
+          failed++;
+          itemError = msg;
+          console.error(`${idx} ❌ ${termStr}: ${msg}`);
+        }
       }
     }
+
+    items.push({ term: termStr, file, draftId, body, error: itemError });
+    sections.push(
+      [
+        `## ${termStr}`,
+        `- 動画: \`${file}\``,
+        draftId ? `- 下書きID: \`${draftId}\`` : '- 下書きID: (未送信)',
+        '',
+        '```',
+        body,
+        '```',
+        '',
+      ].join('\n'),
+    );
   }
 
   await mkdir(paths.output, { recursive: true });
@@ -163,9 +186,20 @@ async function main() {
   ].join('\n');
   await writeFile(CAPTIONS_PATH, header + sections.join('\n'));
 
+  // スマホ閲覧用HTML（GitHub Pages 配信）。generatedAt は resume 制約と無関係なのでここで確定。
+  const html = renderCaptionsHtml(items, {
+    total: files.length,
+    ok,
+    skipped,
+    failed,
+    generatedAt: new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC',
+  });
+  await writeFile(CAPTIONS_HTML_PATH, html);
+
   console.log(`\n完了: 成功 ${ok} / スキップ ${skipped} / 失敗 ${failed}`);
   if (stoppedByLimit) console.log('（下書き上限で途中停止。枠を空けて再実行してください）');
-  console.log(`キャプション: ${CAPTIONS_PATH}`);
+  console.log(`キャプション(md): ${CAPTIONS_PATH}`);
+  console.log(`キャプション(html): ${CAPTIONS_HTML_PATH}`);
 }
 
 main().catch((err) => {
