@@ -1,9 +1,8 @@
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { spawn } from 'node:child_process';
 import { stdin, stdout } from 'node:process';
-import { resolve } from 'node:path';
-import { config, paths } from '../src/config.js';
+import { config } from '../src/config.js';
+import { updateEnv } from '../src/env-file.js';
 import { exchangeCode } from '../src/social/tiktok.js';
 
 /**
@@ -48,7 +47,7 @@ async function main() {
   if (!code) throw new Error('code を認識できませんでした。ページに表示された値をそのまま貼ってください。');
 
   const tokens = await exchangeCode(code);
-  saveEnv({
+  updateEnv({
     TIKTOK_ACCESS_TOKEN: tokens.accessToken,
     TIKTOK_REFRESH_TOKEN: tokens.refreshToken,
   });
@@ -67,27 +66,6 @@ function extractCode(input: string): string {
     if (m) return decodeURIComponent(m[1]);
   }
   return input;
-}
-
-/** .env の該当キーを上書き（無ければ追記）。 */
-function saveEnv(vars: Record<string, string>): void {
-  const envPath = resolve(paths.root, '.env');
-  let env = '';
-  try {
-    env = readFileSync(envPath, 'utf8');
-  } catch {
-    /* 無ければ新規 */
-  }
-  for (const [key, value] of Object.entries(vars)) {
-    const line = `${key}=${value}`;
-    if (new RegExp(`^${key}=.*$`, 'm').test(env)) {
-      env = env.replace(new RegExp(`^${key}=.*$`, 'm'), line);
-    } else {
-      env += (env.endsWith('\n') || env === '' ? '' : '\n') + line + '\n';
-    }
-  }
-  if (env && !env.endsWith('\n')) env += '\n';
-  writeFileSync(envPath, env);
 }
 
 main().catch((err) => {

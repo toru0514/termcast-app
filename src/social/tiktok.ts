@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { statSync } from 'node:fs';
 import { config } from '../config.js';
+import { updateEnv } from '../env-file.js';
 import type { SocialText } from './caption.js';
 import { RateLimiter, specOf } from './platforms.js';
 
@@ -75,6 +76,25 @@ export function refreshAccessToken(
   });
 }
 
+/**
+ * 取得したトークンを .env に永続化する（best-effort）。
+ * 新しい refresh_token が返ったときのみ書き戻し、同プロセス内の後続呼び出しにも反映する。
+ * 書き込み失敗は投稿処理を止めないよう握りつぶす（次回また取得できる）。
+ */
+function persistTokens(accessToken: string, newRefreshToken?: string): void {
+  try {
+    const vars: Record<string, string> = { TIKTOK_ACCESS_TOKEN: accessToken };
+    if (newRefreshToken) {
+      vars.TIKTOK_REFRESH_TOKEN = newRefreshToken;
+      config.tiktok.refreshToken = newRefreshToken;
+      process.env.TIKTOK_REFRESH_TOKEN = newRefreshToken;
+    }
+    updateEnv(vars);
+  } catch {
+    /* 永続化失敗は致命的でない */
+  }
+}
+
 export interface CreatorInfo {
   creatorNickname?: string;
   /** 直接公開が許可された公開範囲オプション（審査状況で変わる） */
@@ -113,7 +133,11 @@ export class TikTokUploader {
     if (this.cachedToken) return this.cachedToken;
     const { clientKey, clientSecret, refreshToken } = config.tiktok;
     if (clientKey && clientSecret && refreshToken) {
-      this.cachedToken = (await refreshAccessToken(refreshToken)).accessToken;
+      const t = await refreshAccessToken(refreshToken);
+      this.cachedToken = t.accessToken;
+      // TikTok はリフレッシュ時に refresh_token をローテーションすることがある。
+      // 変わっていたら .env に書き戻さないと、次回以降 古い token で認証が切れる。
+      persistTokens(t.accessToken, t.refreshToken !== refreshToken ? t.refreshToken : undefined);
       return this.cachedToken;
     }
     if (this.accessToken) {
