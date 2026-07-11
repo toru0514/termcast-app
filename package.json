@@ -16,7 +16,8 @@
     "render": "tsx scripts/render.ts",
     "youtube:auth": "tsx scripts/youtube-auth.ts",
     "tiktok:auth": "tsx scripts/tiktok-auth.ts",
-    "tiktok:backfill": "tsx scripts/tiktok-backfill.ts"
+    "tiktok:backfill": "tsx scripts/tiktok-backfill.ts",
+    "tiktok:status": "tsx scripts/tiktok-status.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

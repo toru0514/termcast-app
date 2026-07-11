@@ -156,6 +156,28 @@ export class TikTokUploader {
     };
   }
 
+  /**
+   * 送信済みコンテンツの処理状況を取得する（post/publish/status/fetch）。
+   * inbox 送信は status=SEND_TO_USER_INBOX で「アプリの通知に届いた」状態を表す。
+   */
+  async queryStatus(publishId: string): Promise<{ status: string; failReason?: string; raw: unknown }> {
+    const token = await this.resolveToken();
+    await this.limiter.acquire();
+    const res = await fetch(`${this.base}/post/publish/status/fetch/`, {
+      method: 'POST',
+      headers: this.headers(token),
+      body: JSON.stringify({ publish_id: publishId }),
+    });
+    const json = (await res.json()) as {
+      data?: { status?: string; fail_reason?: string };
+      error?: { message?: string; code?: string };
+    };
+    if (!res.ok || (json.error && json.error.code && json.error.code !== 'ok')) {
+      throw new Error(json.error?.message ?? `status fetch failed: ${res.status}`);
+    }
+    return { status: json.data?.status ?? 'UNKNOWN', failReason: json.data?.fail_reason, raw: json.data };
+  }
+
   /** creator_info 取得。Direct Post 可否や公開範囲オプションの確認に使う。 */
   async queryCreatorInfo(): Promise<CreatorInfo> {
     const token = await this.resolveToken();
