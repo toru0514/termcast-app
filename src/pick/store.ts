@@ -17,6 +17,8 @@ export interface TermStore {
   /** 次に動画化する1語を選定（pending → difficulty昇順・カテゴリ分散） */
   pickNext(): Promise<Term | null>;
   markGenerated(id: string): Promise<void>;
+  /** ファクトチェックに通らなかった用語を除外対象にする（再選定されない） */
+  markNeedsReview(id: string): Promise<void>;
   markPublished(id: string, fields: PublishFields): Promise<void>;
   /** ステータスは変えずに成果物ID（Drive/YouTube）だけ記録する */
   recordArtifacts(id: string, fields: PublishFields): Promise<void>;
@@ -24,7 +26,7 @@ export interface TermStore {
 
 // ===== ローカルJSON ストア（Supabase未設定時のフォールバック） =====
 interface UsedRecord {
-  status: 'generated' | 'published';
+  status: 'generated' | 'published' | 'needs_review';
   published_at?: string;
   category: string;
   youtube_video_id?: string | null;
@@ -86,6 +88,15 @@ export class LocalTermStore implements TermStore {
     await this.saveUsed(used);
   }
 
+  async markNeedsReview(id: string): Promise<void> {
+    const seed = await this.loadSeed();
+    const term = seed.find((t) => t.id === id);
+    const used = await this.loadUsed();
+    // used に載せることで pickNext（!used[t.id] で pending 抽出）から除外される。
+    used[id] = { ...used[id], status: 'needs_review', category: term?.category ?? '' };
+    await this.saveUsed(used);
+  }
+
   async markPublished(id: string, fields: PublishFields): Promise<void> {
     const used = await this.loadUsed();
     const prev = used[id] ?? { category: '' };
@@ -142,6 +153,14 @@ export class SupabaseTermStore implements TermStore {
       .update({ status: 'generated' })
       .eq('id', id);
     if (error) throw new Error(`Supabase markGenerated failed: ${error.message}`);
+  }
+
+  async markNeedsReview(id: string): Promise<void> {
+    const { error } = await this.client
+      .from(config.supabase.table)
+      .update({ status: 'needs_review' })
+      .eq('id', id);
+    if (error) throw new Error(`Supabase markNeedsReview failed: ${error.message}`);
   }
 
   async markPublished(id: string, fields: PublishFields): Promise<void> {

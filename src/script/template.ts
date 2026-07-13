@@ -8,7 +8,8 @@ import { suggestVisual } from '../scene/visuals.js';
 export class TemplateScriptGenerator implements ScriptGenerator {
   name = 'template';
 
-  async generate(term: Term): Promise<ScriptResult> {
+  // feedback はテンプレ生成では使わない（決定的な内容のため）。引数は互換のため受け取る。
+  async generate(term: Term, _feedback?: string): Promise<ScriptResult> {
     const t = term.term;
     const cat = term.category || '株式投資';
 

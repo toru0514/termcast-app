@@ -6,7 +6,7 @@ import { z } from 'zod';
  */
 
 // ===== ①ネタ管理 =====
-export const TermStatus = z.enum(['pending', 'generated', 'published']);
+export const TermStatus = z.enum(['pending', 'generated', 'published', 'needs_review']);
 export type TermStatus = z.infer<typeof TermStatus>;
 
 export const TermSchema = z.object({
@@ -45,7 +45,11 @@ export type ScriptResult = z.infer<typeof ScriptResultSchema>;
 /** 台本生成の抽象インターフェース（Gemini / テンプレ / 将来Claude を差し替え可能に） */
 export interface ScriptGenerator {
   name: string;
-  generate(term: Term): Promise<ScriptResult>;
+  /**
+   * 台本を生成する。ファクトチェックで不合格になった場合、修正指示(feedback)を添えて
+   * 再生成させるための任意引数。未指定なら通常生成（後方互換）。
+   */
+  generate(term: Term, feedback?: string): Promise<ScriptResult>;
 }
 
 // ===== ③シーン定義 =====

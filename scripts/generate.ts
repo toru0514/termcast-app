@@ -6,6 +6,8 @@ import { uploadToDrive } from '../src/drive.js';
 import { uploadToYouTube } from '../src/youtube.js';
 import { createTermStore } from '../src/pick/store.js';
 import { createScriptGenerator } from '../src/script/index.js';
+import { createFactChecker, verifiedGenerate } from '../src/verify/index.js';
+import type { ScriptResult, Term } from '../src/types.js';
 import { buildSceneFile, applyDurations } from '../src/scene/build.js';
 import { writeSceneFile } from '../src/scene/io.js';
 import { createTtsEngine } from '../src/tts/index.js';
@@ -19,20 +21,41 @@ function log(step: string, msg: string) {
 }
 
 async function main() {
-  // ①ネタ選定
+  // ①ネタ選定 ＋ ②台本生成 ＋ ファクトチェック・ゲート
+  // 生成→検証を通過するまで pending 用語を順に試し、通らない用語は needs_review にして次へ。
   const store = createTermStore();
-  log('1/6 pick', `store=${store.name}`);
-  const term = await store.pickNext();
-  if (!term) {
-    console.error('pending な用語がありません。data/terms.seed.json を追加するか used.json をリセットしてください。');
+  const generator = createScriptGenerator();
+  const checker = createFactChecker();
+  log('1/6 pick', `store=${store.name} / checker=${checker.name}`);
+  if (checker.name === 'noop') {
+    log('verify', '⚠️ GEMINI未設定 or VERIFY_ENABLED=false のため、ファクトチェックはスキップされます');
+  }
+
+  let term: Term | null = null;
+  let script: ScriptResult | null = null;
+  for (let i = 0; i < config.verify.maxTerms; i++) {
+    const candidate = await store.pickNext();
+    if (!candidate) break;
+    log('1/6 pick', `「${candidate.term}」(${candidate.category}, 難易度${candidate.difficulty})`);
+    log('2/6 script', `generator=${generator.name} → factcheck=${checker.name}`);
+    const r = await verifiedGenerate(candidate, generator, checker, { maxRegen: config.verify.maxRegen });
+    if (r.ok) {
+      term = candidate;
+      script = r.script;
+      log('2/6 script', `✅ ファクトチェック合格（生成${r.attempts}回）`);
+      break;
+    }
+    const problems = r.verdict?.issues.map((x) => `${x.scene}: ${x.problem}`).join(' / ') || '不明';
+    log('2/6 script', `❌ 「${candidate.term}」不合格（${r.attempts}回試行）→ needs_review。指摘: ${problems}`);
+    await store.markNeedsReview(candidate.id);
+  }
+
+  if (!term || !script) {
+    console.error(
+      'ファクトチェックを通過する台本が得られませんでした（pending枯渇 or 連続不合格）。needs_review を確認してください。',
+    );
     process.exit(1);
   }
-  log('1/6 pick', `「${term.term}」(${term.category}, 難易度${term.difficulty})`);
-
-  // ②台本生成
-  const generator = createScriptGenerator();
-  log('2/6 script', `generator=${generator.name}`);
-  const script = await generator.generate(term);
 
   // ③シーン定義
   let sceneFile = buildSceneFile(term, script);

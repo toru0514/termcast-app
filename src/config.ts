@@ -19,6 +19,17 @@ export const config = {
       return Boolean(this.apiKey);
     },
   },
+  verify: {
+    // 台本のファクトチェック・ゲート（設計書 docs/.../2026-07-13-factcheck-gate-design.md）。
+    // 既定 on。GEMINI 未設定時は Noop（常にpass）にフォールバックする。
+    enabled: !['0', 'false', 'no'].includes((process.env.VERIFY_ENABLED ?? 'true').toLowerCase()),
+    // 検証用モデル（生成と別に差し替え可能。既定は生成と同じ Flash）。
+    model: process.env.VERIFY_MODEL ?? process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
+    // fail 時の再生成回数の上限（既定2 ＝ 最大3回生成）。
+    maxRegen: Number(process.env.VERIFY_MAX_REGEN ?? '2'),
+    // 1実行で試す用語数の上限（fail が続いたら次の用語へ。既定3）。
+    maxTerms: Number(process.env.VERIFY_MAX_TERMS ?? '3'),
+  },
   voicevox: {
     url: process.env.VOICEVOX_URL ?? 'http://127.0.0.1:50021',
     speaker: Number(process.env.VOICEVOX_SPEAKER ?? '3'),

@@ -16,7 +16,7 @@ export class GeminiScriptGenerator implements ScriptGenerator {
     this.genAI = new GoogleGenerativeAI(config.gemini.apiKey);
   }
 
-  async generate(term: Term): Promise<ScriptResult> {
+  async generate(term: Term, feedback?: string): Promise<ScriptResult> {
     const model = this.genAI.getGenerativeModel({
       model: config.gemini.model,
       generationConfig: {
@@ -46,7 +46,7 @@ export class GeminiScriptGenerator implements ScriptGenerator {
       },
     });
 
-    const prompt = this.buildPrompt(term);
+    const prompt = this.buildPrompt(term, feedback);
     const res = await model.generateContent(prompt);
     const json = JSON.parse(res.response.text()) as {
       scenes: Array<{ type: string; narration: string; caption: string; visual?: string }>;
@@ -62,7 +62,7 @@ export class GeminiScriptGenerator implements ScriptGenerator {
     return ScriptResultSchema.parse({ term: term.term, scenes });
   }
 
-  private buildPrompt(term: Term): string {
+  private buildPrompt(term: Term, feedback?: string): string {
     return [
       'あなたは株式投資初心者向けのショート動画の構成作家です。',
       `次の株用語を、約15〜20秒でサクッと解説する台本を作ってください。とにかく短くテンポよく。`,
@@ -79,7 +79,10 @@ export class GeminiScriptGenerator implements ScriptGenerator {
       '- 冗長な前置き・修飾・繰り返しは禁止。要点だけを一息で言い切る。',
       '- caption は画面テロップ用の短い一言（最大12字）。',
       '- 投資助言と誤認される断定（「買うべき」等）は避け、教育目的に徹する。',
+      '- 事実に正確であること。特に始値/終値・高値/安値・上昇/下落など方向や大小関係を間違えない。',
       '- 各シーンに type / narration / caption を必ず含めること。',
+      // ファクトチェック不合格からの再生成時は、指摘された誤りを最優先で修正する。
+      ...(feedback ? ['', feedback] : []),
     ].join('\n');
   }
 }
