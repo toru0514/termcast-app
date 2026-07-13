@@ -48,6 +48,8 @@ export interface PlatformSpec {
   rateLimit: RateLimit;
   /** この媒体が「公式な下書きAPI」を持つか（Instagram は持たない） */
   hasDraftApi: boolean;
+  /** この媒体で弾かれる/使わないハッシュタグ（先頭#付き, 正規化済み）。TikTok の #株式投資 等 */
+  bannedHashtags?: string[];
 }
 
 function numEnv(name: string, fallback: number): number {
@@ -74,6 +76,8 @@ export const PLATFORM_SPECS: Record<SocialPlatform, PlatformSpec> = {
       perDay: numEnv('SOCIAL_TIKTOK_PER_DAY', 15),
     },
     hasDraftApi: true,
+    // TikTok では投稿時に弾かれるため付与しない（金融系の一部タグが対象）。
+    bannedHashtags: ['#株式投資'],
   },
   instagram: {
     platform: 'instagram',

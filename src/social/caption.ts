@@ -90,7 +90,11 @@ export function buildSocialText(
   opts: SocialTextOptions = {},
 ): SocialText {
   const spec = specOf(platform);
-  const hashtags = baseHashtags(sceneFile).slice(0, spec.maxHashtags);
+  // 禁止タグは slice の前に除外し、後続タグを繰り上げて maxHashtags 本を確保する。
+  const banned = new Set(spec.bannedHashtags ?? []);
+  const hashtags = baseHashtags(sceneFile)
+    .filter((t) => !banned.has(t))
+    .slice(0, spec.maxHashtags);
   const term = sceneFile.term;
   const definition = sceneNarr(sceneFile, 'definition');
   const example = sceneNarr(sceneFile, 'example');

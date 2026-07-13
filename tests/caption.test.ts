@@ -43,6 +43,19 @@ describe('buildSocialText', () => {
     expect(t.body).toContain(t.hashtags[0]);
   });
 
+  it('TikTok: 禁止タグ #株式投資 は除外され、代わりに別タグで本数を確保', () => {
+    const t = buildSocialText(sceneFile, 'tiktok');
+    expect(t.hashtags).not.toContain('#株式投資');
+    expect(t.body).not.toContain('#株式投資');
+    // 除外しても maxHashtags いっぱいまで詰める（後続タグを繰り上げ）
+    expect(t.hashtags.length).toBe(specOf('tiktok').maxHashtags);
+  });
+
+  it('Instagram: #株式投資 は許可（TikTok限定の禁止）', () => {
+    const t = buildSocialText(sceneFile, 'instagram');
+    expect(t.hashtags).toContain('#株式投資');
+  });
+
   it('Instagram: 長文＋末尾ハッシュタグブロック＋免責', () => {
     const t = buildSocialText(sceneFile, 'instagram');
     expect(t.caption).toContain('ローソク足とは？');
