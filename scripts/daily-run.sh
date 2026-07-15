@@ -81,6 +81,22 @@ if [ $STATUS -eq 0 ]; then
   else
     log "WARN: TikTok下書き送信は未成功（生成は成功）。$TT_LINE"
   fi
+
+  # --- 4c. 公開用キャプションページ(captions.html)を最新化して GitHub Pages へ反映 ---
+  # generate が新規動画のキャプションをキャッシュ済みなので captions:page は Gemini 不要で即完了。
+  log "captions.html 更新＆push…"
+  npm run captions:page >>"$LOG_FILE" 2>&1
+  if git diff --quiet -- captions.html 2>/dev/null; then
+    log "captions.html 変更なし"
+  else
+    git add captions.html >>"$LOG_FILE" 2>&1
+    git commit -q -m "Update captions page (daily $(date +%Y-%m-%d))" >>"$LOG_FILE" 2>&1
+    if git push origin main >>"$LOG_FILE" 2>&1; then
+      log "captions.html を push（GitHub Pages 反映）"
+    else
+      log "WARN: captions.html の push 失敗（launchdのgit認証を確認）。ローカルcommitは済。"
+    fi
+  fi
 else
   log "ERROR: generate 失敗 (exit $STATUS)。詳細は $LOG_FILE"
 fi

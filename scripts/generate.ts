@@ -9,6 +9,8 @@ import { createScriptGenerator } from '../src/script/index.js';
 import { createFactChecker, verifiedGenerate } from '../src/verify/index.js';
 import type { ScriptResult, Term } from '../src/types.js';
 import { buildSceneFile, applyDurations } from '../src/scene/build.js';
+import { buildSocialText } from '../src/social/index.js';
+import { cacheCaption } from '../src/social/caption-cache.js';
 import { writeSceneFile } from '../src/scene/io.js';
 import { createTtsEngine } from '../src/tts/index.js';
 import { renderShort } from '../src/remotion/render.js';
@@ -89,6 +91,10 @@ async function main() {
   log('5/6 render', `→ ${videoPath}`);
 
   const meta = buildVideoMeta(term, sceneFile);
+
+  // ファクトチェック済みシーンから TikTok キャプションを作りキャッシュへ保存
+  // （captions.html はこのキャッシュから再生成される。文言が固定され日次差分が荒れない）。
+  await cacheCaption(basename(videoPath), term.term, buildSocialText(sceneFile, 'tiktok').body);
 
   // ⑥-a Google Drive へ自動保存（gws CLI 経由。GOOGLE_DRIVE_FOLDER_ID 設定時）
   let driveFileId: string | undefined;

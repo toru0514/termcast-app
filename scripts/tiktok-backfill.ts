@@ -1,12 +1,13 @@
-import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readdir, writeFile, mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { paths } from '../src/config.js';
-import { TermSchema, type Term } from '../src/types.js';
 import { createScriptGenerator } from '../src/script/index.js';
 import { buildSceneFile } from '../src/scene/build.js';
 import { buildSocialText, TikTokUploader } from '../src/social/index.js';
 import { SocialStatusStore } from '../src/social/status.js';
 import { renderCaptionsHtml, type CaptionItem } from '../src/social/captions-page.js';
+import { loadCaptionCache, saveCaptionCache } from '../src/social/caption-cache.js';
+import { termFromFilename, loadSeedByTerm, toTerm } from '../src/social/video-terms.js';
 
 /**
  * 既存の生成済み動画(video/*.mp4)をまとめて TikTok の下書き(inbox)へ送るバックフィル。
@@ -28,47 +29,10 @@ const CAPTIONS_PATH = resolve(paths.output, 'tiktok-captions.md');
 // GitHub Pages で配信するモバイル向けキャプション閲覧ページ（コミット対象）。
 const CAPTIONS_HTML_PATH = resolve(paths.root, 'captions.html');
 
-/** `PBR_2026-06-27-...mp4` / `NISA_final.mp4` → 用語部分を取り出す */
-function termFromFilename(file: string): string {
-  return file
-    .replace(/\.mp4$/i, '')
-    .replace(/_(\d{4}-\d{2}-\d{2}.*|final)$/i, '');
-}
-
-async function loadSeedByTerm(): Promise<Map<string, Partial<Term>>> {
-  const map = new Map<string, Partial<Term>>();
-  try {
-    const seed = JSON.parse(await readFile(paths.seed, 'utf8')) as Array<Record<string, unknown>>;
-    seed.forEach((s, i) => {
-      if (typeof s.term === 'string') {
-        map.set(s.term, {
-          id: (s.id as string) ?? `seed-${i}`,
-          term: s.term,
-          reading: (s.reading as string) ?? '',
-          category: (s.category as string) ?? '',
-          difficulty: (s.difficulty as number) ?? 1,
-        });
-      }
-    });
-  } catch {
-    /* seed が無ければ用語名だけで進める */
-  }
-  return map;
-}
-
-function toTerm(termStr: string, seed?: Partial<Term>): Term {
-  return TermSchema.parse({
-    id: seed?.id ?? termStr,
-    term: termStr,
-    reading: seed?.reading ?? '',
-    category: seed?.category ?? '',
-    difficulty: seed?.difficulty ?? 1,
-  });
-}
-
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
   const force = process.argv.includes('--force');
+  const refresh = process.argv.includes('--refresh'); // キャッシュを無視して全キャプション再生成
   const files = (await readdir(paths.video)).filter((f) => f.toLowerCase().endsWith('.mp4')).sort();
   if (files.length === 0) {
     console.error('video/ に .mp4 がありません。');
@@ -86,6 +50,7 @@ async function main() {
   }
 
   const statusAll = await store.load();
+  const captionCache = await loadCaptionCache();
   console.log(`対象 ${files.length} 本${dryRun ? '（dry-run: 送信しない）' : ''}\n`);
 
   const sections: string[] = [];
@@ -102,7 +67,7 @@ async function main() {
     const videoPath = resolve(paths.video, file);
     const idx = `[${i + 1}/${files.length}]`;
 
-    // 1) キャプションは常に生成（送信可否と独立）
+    // 1) キャプションは常に用意（送信可否と独立）。キャッシュがあれば再生成しない（文言を固定）。
     let body = '';
     let draftId = '';
     let itemError: string | undefined;
@@ -110,8 +75,13 @@ async function main() {
     try {
       term = toTerm(termStr, seedMap.get(termStr));
       draftId = statusAll[term.id]?.tiktok?.targetId ?? '';
-      const script = await generator.generate(term);
-      body = buildSocialText(buildSceneFile(term, script), 'tiktok').body;
+      if (captionCache[file] && !refresh) {
+        body = captionCache[file].body;
+      } else {
+        const script = await generator.generate(term);
+        body = buildSocialText(buildSceneFile(term, script), 'tiktok').body;
+        captionCache[file] = { term: termStr, body };
+      }
     } catch (err) {
       failed++;
       itemError = (err as Error).message;
@@ -173,6 +143,7 @@ async function main() {
     );
   }
 
+  await saveCaptionCache(captionCache);
   await mkdir(paths.output, { recursive: true });
   const header = [
     '# TikTok 下書き用 キャプション集',
